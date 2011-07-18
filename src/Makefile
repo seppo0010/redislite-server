@@ -162,8 +162,12 @@ dependencies:
 ../deps/jemalloc/lib/libjemalloc.a:
 	cd ../deps/jemalloc && ./configure $(JEMALLOC_CFLAGS) --with-jemalloc-prefix=je_ --enable-cc-silence && $(MAKE) lib/libjemalloc.a
 
+redis.o:
+	$(QUIET_CC)$(CC) -c $(CFLAGS) -I../redislite/src $(DEBUG) $(COMPILE_TIME) $<
+
 redis-server: $(OBJ)
-	$(QUIET_CC)$(CC) -o $(PRGNAME) $(CCOPT) $(DEBUG) $(OBJ) $(CCLINK) $(ALLOC_LINK)
+	@cd ../redislite/src && $(MAKE) libredislite-no-sds.a
+	$(QUIET_CC)$(CC) -o $(PRGNAME) $(CCOPT) $(DEBUG) $(OBJ) $(CCLINK) $(ALLOC_LINK) ../redislite/src/libredislite-no-sds.a
 
 redis-benchmark: dependencies $(BENCHOBJ)
 	@cd ../deps/hiredis && $(MAKE) static
@@ -196,7 +200,7 @@ dep:
 	$(CC) -MM *.c -I ../deps/hiredis -I ../deps/linenoise
 
 test: redis-server
-	@(cd ..; (which tclsh >/dev/null && tclsh tests/test_helper.tcl --tags "${TAGS}" --file "${FILE}") || echo "You need to install Tcl in order to run tests.")
+	@(cd ..; (which tclsh8.5 >/dev/null && tclsh8.5 tests/test_helper.tcl --tags "${TAGS}" --file "${FILE}") || echo "You need to install Tcl in order to run tests.")
 
 bench:
 	./redis-benchmark

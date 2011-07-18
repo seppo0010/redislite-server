@@ -1,0 +1,3 @@
+[submodule "redislite"]
+	path = redislite
+	url = http://github.com/seppo0010/redislite.git

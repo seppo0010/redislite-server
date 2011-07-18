@@ -51,6 +51,9 @@
 #include <float.h>
 #include <math.h>
 #include <sys/resource.h>
+#include "redislite.h"
+#include "public_api.h"
+#include "memory.h"
 
 /* Our shared "common" objects */
 
@@ -1040,6 +1043,46 @@ int processCommand(redisClient *c) {
 
     /* Now lookup the command and check ASAP about trivial error conditions
      * such wrong arity, bad command name and so forth. */
+	char **argv = redislite_malloc(sizeof(char*) * c->argc);
+	size_t *argvlen = redislite_malloc(sizeof(size_t) * c->argc);
+	int i;
+	for (i = 0; i < c->argc; i++) {
+		argv[i] = c->argv[i]->ptr;
+		argvlen[i] = sdslen(c->argv[i]->ptr);
+	}
+	redislite *db = redislite_open_database("redislite-server.db");
+	redislite_reply *reply = redislite_command_argv(db, c->argc, (const char**)argv, (const size_t*)argvlen);
+	printf("%d\n", reply->type);
+	switch (reply->type) {
+		case REDISLITE_REPLY_NIL:
+			addReply(c, shared.nullbulk);
+			break;
+
+		case REDISLITE_REPLY_STRING:
+			addReplyBulkCBuffer(c, reply->str, reply->len);
+			break;
+
+		case REDISLITE_REPLY_INTEGER:
+			addReplyLongLong(c, reply->integer);
+			break;
+
+		case REDISLITE_REPLY_STATUS:
+			{
+				reply->str[reply->len] = 0;
+				addReplyStatus(c, reply->str);
+				break;
+			}
+		case REDISLITE_REPLY_ERROR:
+			{
+				reply->str[reply->len] = 0;
+				addReplyError(c, reply->str);
+				break;
+			}
+	}
+	redislite_free(argv);
+	redislite_free(argvlen);
+	return REDIS_OK;
+
     cmd = lookupCommand(c->argv[0]->ptr);
     if (!cmd) {
         addReplyErrorFormat(c,"unknown command '%s'",

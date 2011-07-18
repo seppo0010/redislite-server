@@ -70,7 +70,7 @@ proc reconnect {args} {
 
     # select the right db when we don't have to authenticate
     if {![dict exists $config "requirepass"]} {
-        $client select 9
+#$client select 9
     }
 
     # re-set $srv in the servers list
@@ -88,7 +88,7 @@ proc redis_deferring_client {args} {
     set client [redis [srv $level "host"] [srv $level "port"] 1]
 
     # select the right db and read the response (OK)
-    $client select 9
+#$client select 9
     $client read
     return $client
 }
@@ -118,22 +118,22 @@ proc execute_everything {} {
     }
 
     execute_tests "unit/printver"
-    execute_tests "unit/auth"
-    execute_tests "unit/protocol"
+#execute_tests "unit/auth"
+#execute_tests "unit/protocol"
     execute_tests "unit/basic"
     execute_tests "unit/type/list"
-    execute_tests "unit/type/set"
-    execute_tests "unit/type/zset"
-    execute_tests "unit/type/hash"
-    execute_tests "unit/sort"
-    execute_tests "unit/expire"
-    execute_tests "unit/other"
-    execute_tests "unit/cas"
-    execute_tests "unit/quit"
-    execute_tests "integration/replication"
-    execute_tests "integration/aof"
-#    execute_tests "integration/redis-cli"
-    execute_tests "unit/pubsub"
+#execute_tests "unit/type/set"
+#execute_tests "unit/type/zset"
+#execute_tests "unit/type/hash"
+#execute_tests "unit/sort"
+#execute_tests "unit/expire"
+#execute_tests "unit/other"
+#execute_tests "unit/cas"
+#execute_tests "unit/quit"
+#execute_tests "integration/replication"
+#execute_tests "integration/aof"
+#execute_tests "integration/redis-cli"
+#execute_tests "unit/pubsub"
 
     return; # No diskstore tests for now...
     # run tests with diskstore enabled

@@ -43,6 +43,16 @@
 #include "sds.h"
 #include "zmalloc.h"
 
+inline size_t sdslen(const sds s) {
+    struct sdshdr *sh = (void*)(s-(sizeof(struct sdshdr)));
+    return sh->len;
+}
+
+inline size_t sdsavail(const sds s) {
+    struct sdshdr *sh = (void*)(s-(sizeof(struct sdshdr)));
+    return sh->free;
+}
+
 static void sdsOomAbort(void) {
     fprintf(stderr,"SDS: Out Of Memory (SDS_ABORT_ON_OOM defined)\n");
     abort();
