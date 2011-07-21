@@ -1020,6 +1020,49 @@ void call(redisClient *c, struct redisCommand *cmd) {
     server.stat_numcommands++;
 }
 
+static void redislite_add_reply(redisClient *c, redislite_reply *reply) {
+	switch (reply->type) {
+		case REDISLITE_REPLY_NIL:
+			addReply(c, shared.nullbulk);
+			break;
+
+		case REDISLITE_REPLY_STRING:
+			addReplyBulkCBuffer(c, reply->str, reply->len);
+			break;
+
+		case REDISLITE_REPLY_INTEGER:
+			addReplyLongLong(c, reply->integer);
+			break;
+
+		case REDISLITE_REPLY_STATUS:
+			{
+				reply->str[reply->len] = 0;
+				addReplyStatus(c, reply->str);
+				break;
+			}
+		case REDISLITE_REPLY_ERROR:
+			{
+				reply->str[reply->len] = 0;
+				addReplyError(c, reply->str);
+				break;
+			}
+		case REDISLITE_REPLY_ARRAY:
+			{
+				addReplyMultiBulkLen(c, reply->elements);
+				size_t i;
+				for (i = 0; i < reply->elements; i++) {
+					redislite_add_reply(c, reply->element[i]);
+				}
+				break;
+			}
+		default:
+			{
+				addReplyError(c, "Unknown reply");
+				break;
+			}
+	}
+}
+
 /* If this function gets called we already read a whole
  * command, argments are in the client argv/argc fields.
  * processCommand() execute the command or prepare the
@@ -1052,33 +1095,7 @@ int processCommand(redisClient *c) {
 	}
 	redislite *db = redislite_open_database("redislite-server.db");
 	redislite_reply *reply = redislite_command_argv(db, c->argc, (const char**)argv, (const size_t*)argvlen);
-	printf("%d\n", reply->type);
-	switch (reply->type) {
-		case REDISLITE_REPLY_NIL:
-			addReply(c, shared.nullbulk);
-			break;
-
-		case REDISLITE_REPLY_STRING:
-			addReplyBulkCBuffer(c, reply->str, reply->len);
-			break;
-
-		case REDISLITE_REPLY_INTEGER:
-			addReplyLongLong(c, reply->integer);
-			break;
-
-		case REDISLITE_REPLY_STATUS:
-			{
-				reply->str[reply->len] = 0;
-				addReplyStatus(c, reply->str);
-				break;
-			}
-		case REDISLITE_REPLY_ERROR:
-			{
-				reply->str[reply->len] = 0;
-				addReplyError(c, reply->str);
-				break;
-			}
-	}
+	redislite_add_reply(c, reply);
 	redislite_free(argv);
 	redislite_free(argvlen);
 	return REDIS_OK;
