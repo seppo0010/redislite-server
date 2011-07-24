@@ -1036,13 +1036,13 @@ static void redislite_add_reply(redisClient *c, redislite_reply *reply) {
 
 		case REDISLITE_REPLY_STATUS:
 			{
-				reply->str[reply->len] = 0;
+				if (reply->str[reply->len - 1] != 0) reply->str[reply->len] = 0;
 				addReplyStatus(c, reply->str);
 				break;
 			}
 		case REDISLITE_REPLY_ERROR:
 			{
-				reply->str[reply->len] = 0;
+				if (reply->str[reply->len - 1] != 0) reply->str[reply->len] = 0;
 				addReplyError(c, reply->str);
 				break;
 			}
