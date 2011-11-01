@@ -1096,8 +1096,10 @@ int processCommand(redisClient *c) {
 	redislite *db = redislite_open_database("redislite-server.db");
 	redislite_reply *reply = redislite_command_argv(db, c->argc, (const char**)argv, (const size_t*)argvlen);
 	redislite_add_reply(c, reply);
+	redislite_free_reply(reply);
 	redislite_free(argv);
 	redislite_free(argvlen);
+	redislite_close_database(db);
 	return REDIS_OK;
 
     cmd = lookupCommand(c->argv[0]->ptr);
