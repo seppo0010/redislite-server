@@ -1,0 +1,6 @@
+[submodule "redislite"]
+	path = redislite
+	url = http://github.com/seppo0010/redislite.git
+[submodule "deps/redislite"]
+	path = deps/redislite
+	url = http://github.com/seppo0010/redislite.git

@@ -53,6 +53,9 @@
 #include <float.h>
 #include <math.h>
 #include <sys/resource.h>
+#include "redislite.h"
+#include "public_api.h"
+#include "memory.h"
 
 /* Our shared "common" objects */
 
@@ -706,7 +709,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
         if ((pid = wait3(&statloc,WNOHANG,NULL)) != 0) {
             int exitcode = WEXITSTATUS(statloc);
             int bysignal = 0;
-            
+
             if (WIFSIGNALED(statloc)) bysignal = WTERMSIG(statloc);
 
             if (pid == server.bgsavechildpid) {
@@ -942,7 +945,7 @@ void initServerConfig() {
     populateCommandTable();
     server.delCommand = lookupCommandByCString("del");
     server.multiCommand = lookupCommandByCString("multi");
-    
+
     /* Slow log */
     server.slowlog_log_slower_than = REDIS_SLOWLOG_LOG_SLOWER_THAN;
     server.slowlog_max_len = REDIS_SLOWLOG_MAX_LEN;
@@ -1165,6 +1168,49 @@ void call(redisClient *c) {
     server.stat_numcommands++;
 }
 
+static void redislite_add_reply(redisClient *c, redislite_reply *reply) {
+	switch (reply->type) {
+		case REDISLITE_REPLY_NIL:
+			addReply(c, shared.nullbulk);
+			break;
+
+		case REDISLITE_REPLY_STRING:
+			addReplyBulkCBuffer(c, reply->str, reply->len);
+			break;
+
+		case REDISLITE_REPLY_INTEGER:
+			addReplyLongLong(c, reply->integer);
+			break;
+
+		case REDISLITE_REPLY_STATUS:
+			{
+				if (reply->str[reply->len - 1] != 0) reply->str[reply->len] = 0;
+				addReplyStatus(c, reply->str);
+				break;
+			}
+		case REDISLITE_REPLY_ERROR:
+			{
+				if (reply->str[reply->len - 1] != 0) reply->str[reply->len] = 0;
+				addReplyError(c, reply->str);
+				break;
+			}
+		case REDISLITE_REPLY_ARRAY:
+			{
+				addReplyMultiBulkLen(c, reply->elements);
+				size_t i;
+				for (i = 0; i < reply->elements; i++) {
+					redislite_add_reply(c, reply->element[i]);
+				}
+				break;
+			}
+		default:
+			{
+				addReplyError(c, "Unknown reply");
+				break;
+			}
+	}
+}
+
 /* If this function gets called we already read a whole
  * command, argments are in the client argv/argc fields.
  * processCommand() execute the command or prepare the
@@ -1195,13 +1241,6 @@ int processCommand(redisClient *c) {
                (c->argc < -c->cmd->arity)) {
         addReplyErrorFormat(c,"wrong number of arguments for '%s' command",
             c->cmd->name);
-        return REDIS_OK;
-    }
-
-    /* Check if the user is authenticated */
-    if (server.requirepass && !c->authenticated && c->cmd->proc != authCommand)
-    {
-        addReplyError(c,"operation not permitted");
         return REDIS_OK;
     }
 
@@ -1290,7 +1329,20 @@ int processCommand(redisClient *c) {
         queueMultiCommand(c);
         addReply(c,shared.queued);
     } else {
-        call(c);
+		char **argv = redislite_malloc(sizeof(char*) * c->argc);
+		size_t *argvlen = redislite_malloc(sizeof(size_t) * c->argc);
+		int i;
+		for (i = 0; i < c->argc; i++) {
+			argv[i] = c->argv[i]->ptr;
+			argvlen[i] = sdslen(c->argv[i]->ptr);
+		}
+		redislite *db = redislite_open_database("redislite-server.db");
+		redislite_reply *reply = redislite_command_argv(db, c->argc, (const char**)argv, (const size_t*)argvlen);
+		redislite_add_reply(c, reply);
+		redislite_free_reply(reply);
+		redislite_free(argv);
+		redislite_free(argvlen);
+		redislite_close_database(db);
     }
     return REDIS_OK;
 }
@@ -1405,7 +1457,7 @@ sds genRedisInfoString(char *section) {
     unsigned long lol, bib;
     int allsections = 0, defsections = 0;
     int sections = 0;
-    
+
     if (section) {
         allsections = strcasecmp(section,"all") == 0;
         defsections = strcasecmp(section,"default") == 0;

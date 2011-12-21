@@ -38,6 +38,7 @@ distclean:
 	-(cd linenoise && $(MAKE) clean) > /dev/null || true
 	-(cd lua && $(MAKE) clean) > /dev/null || true
 	-(cd jemalloc && [ -f Makefile ] && $(MAKE) distclean) > /dev/null || true
+	-(cd redislite && $(MAKE) clean) > /dev/null || true
 	-(rm -f .make-arch)
 
 hiredis: .make-arch
@@ -56,4 +57,8 @@ jemalloc: .make-arch
 	@printf '%b %b\n' $(MAKECOLOR)MAKE$(ENDCOLOR) $(BINCOLOR)jemalloc$(ENDCOLOR)
 	cd jemalloc && ./configure $(JEMALLOC_CFLAGS) --with-jemalloc-prefix=je_ --enable-cc-silence && $(MAKE) lib/libjemalloc.a
 
-.PHONY: default conditional_clean hiredis linenoise lua jemalloc
+redislite: .make-arch
+	@printf '%b %b\n' $(MAKECOLOR)MAKE$(ENDCOLOR) $(BINCOLOR)redislite$(ENDCOLOR)
+	cd redislite/src && $(MAKE) libredislite-no-sds.a
+
+.PHONY: default conditional_clean hiredis linenoise lua jemalloc redislite

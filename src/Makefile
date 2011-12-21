@@ -5,7 +5,7 @@
 release_hdr := $(shell sh -c './mkreleasehdr.sh')
 uname_S := $(shell sh -c 'uname -s 2>/dev/null || echo not')
 OPTIMIZATION?=-O2
-DEPENDENCY_TARGETS=hiredis linenoise lua
+DEPENDENCY_TARGETS=hiredis linenoise lua redislite
 
 ifeq ($(uname_S),SunOS)
   CFLAGS?=-std=c99 -pedantic $(OPTIMIZATION) -Wall -W -D__EXTENSIONS__ -D_XPG6
@@ -193,10 +193,10 @@ endif
 	@touch $@
 
 redis-server: .make-prerequisites $(OBJ)
-	$(QUIET_LINK)$(CC) -o $(PRGNAME) $(CCOPT) $(DEBUG) $(OBJ) ../deps/lua/src/liblua.a $(CCLINK)
+	$(QUIET_LINK)$(CC) -o $(PRGNAME) $(CCOPT) $(DEBUG) $(OBJ) ../deps/lua/src/liblua.a ../deps/redislite/src/libredislite-no-sds.a $(CCLINK)
 
 redis-benchmark: .make-prerequisites $(BENCHOBJ)
-	$(QUIET_LINK)$(CC) -o $(BENCHPRGNAME) $(CCOPT) $(DEBUG) $(BENCHOBJ) ../deps/hiredis/libhiredis.a $(CCLINK)
+	$(QUIET_LINK)$(CC) -o $(BENCHPRGNAME) $(CCOPT) $(DEBUG) $(BENCHOBJ) ../deps/hiredis/libhiredis.a ../deps/redislite/src/libredislite-no-sds.a $(CCLINK)
 
 redis-benchmark.o: redis-benchmark.c .make-prerequisites
 	$(QUIET_CC)$(CC) -c $(CFLAGS) -I../deps/hiredis $(DEBUG) $(COMPILE_TIME) $<
@@ -206,6 +206,14 @@ redis-cli: .make-prerequisites $(CLIOBJ)
 
 redis-cli.o: redis-cli.c .make-prerequisites
 	$(QUIET_CC)$(CC) -c $(CFLAGS) -I../deps/hiredis -I../deps/linenoise $(DEBUG) $(COMPILE_TIME) $<
+
+libredislite-no-sds.a: memory.o core.o redislite.o util.o page_index.o page.o page_string.o page_first.o page_freelist.o page_list.o page_set.o public_api.o release.o
+	ar -cq libredislite-no-sds.a memory.o core.o redislite.o util.o page_index.o page_set.o page.o\
+	page_string.o page_first.o page_freelist.o page_list.o public_api.o release.o
+
+libredislite.a: memory.o core.o redislite.o util.o page_index.o page.o page_string.o page_first.o page_freelist.o page_list.o page_set.o public_api.o sds.o release.o
+	ar -cq libredislite.a memory.o core.o redislite.o util.o page_index.o page.o\
+	page_string.o page_first.o page_freelist.o page_list.o page_set.o public_api.o release.o sds.o
 
 redis-check-dump: .make-prerequisites $(CHECKDUMPOBJ)
 	$(QUIET_LINK)$(CC) -o $(CHECKDUMPPRGNAME) $(CCOPT) $(DEBUG) $(CHECKDUMPOBJ) $(CCLINK)
@@ -217,7 +225,7 @@ redis-check-aof: .make-prerequisites $(CHECKAOFOBJ)
 # process, building it should complete before building any other object. Instead of
 # depending on a single artifact, simply build all dependencies first.
 %.o: %.c .make-prerequisites
-	$(QUIET_CC)$(CC) -c $(CFLAGS) $(DEBUG) $(COMPILE_TIME) -I../deps/lua/src $<
+	$(QUIET_CC)$(CC) -c $(CFLAGS) $(DEBUG) $(COMPILE_TIME) -I../deps/lua/src -I../deps/redislite/src $<
 
 .PHONY: all clean distclean
 
