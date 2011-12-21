@@ -1329,6 +1329,16 @@ int processCommand(redisClient *c) {
         queueMultiCommand(c);
         addReply(c,shared.queued);
     } else {
+		if (sdslen(c->argv[0]->ptr) == 4) {
+			sds command = sdsnewlen(command, 4);
+			sdstoupper(command);
+			if (strcmp(command, "AUTH") == 0) {
+				authCommand(c);
+				sdsfree(command);
+				return REDIS_OK;
+			}
+			sdsfree(command);
+		}
 		char **argv = redislite_malloc(sizeof(char*) * c->argc);
 		size_t *argvlen = redislite_malloc(sizeof(size_t) * c->argc);
 		int i;
