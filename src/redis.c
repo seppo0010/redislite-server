@@ -1244,6 +1244,13 @@ int processCommand(redisClient *c) {
         return REDIS_OK;
     }
 
+    /* Check if the user is authenticated */
+    if (server.requirepass && !c->authenticated && c->cmd->proc != authCommand)
+    {
+        addReplyError(c,"operation not permitted");
+        return REDIS_OK;
+    }
+
     /* If cluster is enabled, redirect here */
     if (server.cluster_enabled &&
                 !(c->cmd->getkeys_proc == NULL && c->cmd->firstkey == 0)) {
