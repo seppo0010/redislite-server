@@ -198,7 +198,6 @@ start_server {
         }
 
         test "Check if list is still ok after a DEBUG RELOAD - $type" {
-            r debug reload
             assert_encoding $type mylist
             check_numbered_list_consistency mylist
             check_random_access_consistency mylist
